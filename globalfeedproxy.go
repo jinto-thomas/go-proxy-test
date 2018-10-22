@@ -78,7 +78,7 @@ func proxyInputFeed(ch <-chan JsonQuote, connList *[]Broadcast) {
 
 func proxyFeedClient(wg *sync.WaitGroup, ch chan<- JsonQuote) {
 	fmt.Println("starting client....")
-	conn, err := net.Dial("tcp", "localhost:3002")
+	conn, err := net.Dial("tcp", "localhost:3001")
 
 	if err != nil {
 		fmt.Println(err)

@@ -72,6 +72,7 @@ func updateQuoteDb(ch <-chan JsonQuote) {
 		panic(err)
 	}
 	defer db.Close()
+	db.SetMaxOpenConns(5)
 
 	i := 0
 	for {
@@ -97,9 +98,11 @@ func updateQuoteDb(ch <-chan JsonQuote) {
 }
 
 func updateValues(buf *[]JsonQuote, db *sql.DB) {
-	query1 := `insert into nse_quote (trad_sym, symbol, ltp) values `
+	query1 := `insert into nse_quote (trad_sym, symbol, ltp, open, close, high, low, changed, changePer, volume, ask, bid, asksize, bidsize, ltt) values `
 
-	tail := " on duplicate key update ltp = VALUES(ltp)"
+	tail := ` on duplicate key update ltp = VALUES(ltp), open = VALUES(open), close = VALUES(close), high = VALUES(high), low = VALUES(low),
+	changed = VALUES(changed), changePer = VALUES(changePer), volume = VALUES(volume), ask = VALUES(ask), bid = VALUES(bid),
+	asksize = VALUES(asksize), bidsize = VALUES(bidsize), ltt = VALUES(ltt)`
 
 	var query string
 	vals := []interface{}{}
@@ -109,8 +112,8 @@ func updateValues(buf *[]JsonQuote, db *sql.DB) {
 		if q.Ltp == 0 {
 			return
 		}
-		query += "(?,?,?)"
-		vals = append(vals, q.TradeSymbol, q.Symbol, q.Ltp)
+		query += "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,from_unixtime(?))"
+		vals = append(vals, q.TradeSymbol, q.Symbol, q.Ltp, q.Open, q.Close, q.High, q.Low, q.Change, q.ChangePer, q.TotalQty, q.Ask, q.Bid, q.AskSize, q.BidSize, q.Time)
 		query += ","
 		//vals = append(vals, q.Ltp, q.Open, q.Close, q.High, q.Low, q.Change, q.ChangePer, q.TotalQty, q.Ask, q.Bid, q.AskSize, q.BidSize, q.TradeSymbol)
 	}
@@ -120,13 +123,15 @@ func updateValues(buf *[]JsonQuote, db *sql.DB) {
 	//fmt.Println(query)
 	//fmt.Println(vals)
 
-	db.Begin()
 	pstmt, err := db.Prepare(query)
 	if err != nil {
 		panic(err)
 	}
 	_, err = pstmt.Exec(vals...)
-	fmt.Println("updated ", len(*buf))
+	if err != nil {
+		fmt.Println(err)
+	}
+	//fmt.Println("updated ", len(*buf))
 
 }
 
