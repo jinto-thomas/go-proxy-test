@@ -1,11 +1,17 @@
 package main
 
-import "encoding/json"
-import "fmt"
-import "net"
-import "sync"
+import (
+	"encoding/json"
+	"fmt"
+	"net"
+	"sync"
+	"time"
+	"os"
+	"github.com/Sirupsen/logrus"
+)
 
-import "time"
+var yamlFile string
+var log *logrus.Logger
 
 type JsonQuote struct {
 	Symbol       string  `json:"sym"`
@@ -28,9 +34,15 @@ type JsonQuote struct {
 }
 
 func server(wg *sync.WaitGroup) {
-	ln, err := net.Listen("tcp", ":3002")
+	yamlConfig := getYamlConfig(yamlFile)
+	log = initLogger(yamlConfig.LogFile)
+	log.Debug("dummy feed started..")
+	var port = ":" + yamlConfig.Server.PORT
+
+	ln, err := net.Listen("tcp", port)
 	if err != nil {
 		fmt.Println(err)
+		log.Error(err)
 		wg.Done()
 		return
 	}
@@ -39,6 +51,7 @@ func server(wg *sync.WaitGroup) {
 		c, err := ln.Accept()
 		if err != nil {
 			fmt.Println(err)
+			log.Error(err)
 			continue
 		}
 
@@ -79,6 +92,7 @@ func handleServerConnection(c net.Conn) {
 			err := encoder.Encode(quote)
 			if err != nil {
 				fmt.Println(err)
+				log.Error(err)
 				return
 			}
 			time.Sleep(time.Millisecond * 1)
@@ -88,6 +102,9 @@ func handleServerConnection(c net.Conn) {
 }
 
 func main() {
+	args := os.Args
+	yamlFile = args[1]
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go server(&wg)

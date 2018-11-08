@@ -1,12 +1,17 @@
 package main
 
-import "fmt"
-import "io"
-import "net"
-import "sync"
+import (
+	"encoding/gob"
+	"fmt"
+	"github.com/Sirupsen/logrus"
+	"io"
+	"net"
+	"os"
+	"sync"
+)
 
-//import "time"
-import "encoding/gob"
+var yamlConfig *Config
+var log *logrus.Logger
 
 type JsonQuote struct {
 	Symbol       string  `json:"sym"`
@@ -30,14 +35,16 @@ type JsonQuote struct {
 
 type Broadcast struct {
 	connected bool
-	conn    net.Conn
-	encoder *gob.Encoder
+	conn      net.Conn
+	encoder   *gob.Encoder
 }
 
 func proxyServer(list *[]Broadcast) {
-	ln, err := net.Listen("tcp", ":5000")
+	var proxyPort = ":"+ yamlConfig.Server.PORT
+	ln, err := net.Listen("tcp", proxyPort)
 	if err != nil {
 		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -45,12 +52,14 @@ func proxyServer(list *[]Broadcast) {
 		conn, err := ln.Accept()
 		if err != nil {
 			fmt.Println(err)
+			log.Error(err)
 			continue
 		}
 
 		child := Broadcast{true, conn, gob.NewEncoder(conn)}
 		*list = append(*list, child)
 		fmt.Println("New client added ", conn)
+		log.Info("new client added", conn)
 
 	}
 }
@@ -60,7 +69,6 @@ func proxyInputFeed(ch <-chan JsonQuote, connList *[]Broadcast) {
 	for {
 		select {
 		case quote := <-ch:
-			fmt.Println("in channel : ", quote)
 
 			for _, client := range *connList {
 				if client.connected == true {
@@ -82,12 +90,10 @@ func proxyFeedClient(wg *sync.WaitGroup, ch chan<- JsonQuote) {
 
 	if err != nil {
 		fmt.Println(err)
-		fmt.Println("Error occured while trying to connect to the server")
+		log.Error(err)
 		wg.Done()
 		return
 	}
-
-	fmt.Println(err)
 
 	var cb CircularBuffer = initBuffer()
 
@@ -118,6 +124,11 @@ func proxyFeedClient(wg *sync.WaitGroup, ch chan<- JsonQuote) {
 }
 
 func main() {
+	args := os.Args
+	yamlConfig = getYamlConfig(args[1])
+	log = initLogger(yamlConfig.LogFile)
+	log.Info("Proxy server started with %d", os.Getpid())
+
 	messageChannel := make(chan JsonQuote, 10)
 	connList := make([]Broadcast, 10)
 	go proxyServer(&connList)

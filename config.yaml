@@ -1,0 +1,13 @@
+server:
+  ip: localhost
+  port: 3002
+client:
+  ip: localhost
+  port: 3001
+db:
+  username: root
+  password: roadrunner
+  database: quote
+  poolsize: 5
+ 
+logfile: golog.log

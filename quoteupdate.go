@@ -9,7 +9,12 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"os"
+	"github.com/Sirupsen/logrus"
 )
+
+var yamlConfig *Config
+var log *logrus.Logger
 
 type JsonQuote struct {
 	Symbol       string  `json:"sym"`
@@ -32,11 +37,14 @@ type JsonQuote struct {
 }
 
 func listenToProxy(wg *sync.WaitGroup, ch chan<- JsonQuote) {
-	conn, err := net.Dial("tcp", "localhost:5000")
+
+	var address = yamlConfig.Server.IP + ":"+ yamlConfig.Server.PORT
+
+	conn, err := net.Dial("tcp", address)
 
 	if err != nil {
 		fmt.Println(err)
-		fmt.Println("Error occured while trying to connect to the server")
+		log.Error(err)
 		wg.Done()
 		return
 	}
@@ -50,6 +58,7 @@ func listenToProxy(wg *sync.WaitGroup, ch chan<- JsonQuote) {
 			fmt.Println(err)
 			if err == io.EOF {
 				fmt.Println("Server closed, closing child too")
+				log.Error("Server disconnected")
 				wg.Done()
 				conn.Close()
 				break
@@ -67,8 +76,11 @@ func updateQuoteDb(ch <-chan JsonQuote) {
 	buf := make([]JsonQuote, 200)
 	mutex := new(sync.Mutex)
 
-	db, err := sql.Open("mysql", "root:roadrunner@tcp(127.0.0.1:3306)/quote")
+	var dbaddress = yamlConfig.DB.Username + ":" + yamlConfig.DB.Password + "@tcp(127.0.0.1:3306)/" + yamlConfig.DB.Database
+//root:roadrunner@tcp(127.0.0.1:3306)/quote
+	db, err := sql.Open("mysql", dbaddress)
 	if err != nil {
+		log.Error(err)
 		panic(err)
 	}
 	defer db.Close()
@@ -125,17 +137,23 @@ func updateValues(buf *[]JsonQuote, db *sql.DB) {
 
 	pstmt, err := db.Prepare(query)
 	if err != nil {
+		log.Error(err)
 		panic(err)
 	}
 	_, err = pstmt.Exec(vals...)
 	if err != nil {
 		fmt.Println(err)
+		log.Error(err)
 	}
 	//fmt.Println("updated ", len(*buf))
 
 }
 
 func main() {
+	args := os.Args
+	yamlConfig = getYamlConfig(args[1])
+	log = initLogger(yamlConfig.LogFile)
+	log.Info("Quote updater started")
 	quoteQueueChannel := make(chan JsonQuote, 10)
 
 	var wg sync.WaitGroup

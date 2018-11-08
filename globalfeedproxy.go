@@ -1,11 +1,18 @@
 package main
 
-import "fmt"
-import "io"
-import "net"
-import "sync"
-import "encoding/gob"
-import "encoding/json"
+import (
+	"encoding/gob"
+	"encoding/json"
+	"fmt"
+	"github.com/Sirupsen/logrus"
+	"io"
+	"net"
+	"sync"
+	"os"
+)
+
+var yamlConfig *Config
+var log *logrus.Logger
 
 type JsonQuote struct {
 	Symbol       string  `json:"sym"`
@@ -29,14 +36,16 @@ type JsonQuote struct {
 
 type Broadcast struct {
 	connected bool
-	conn    net.Conn
-	encoder *gob.Encoder
+	conn      net.Conn
+	encoder   *gob.Encoder
 }
 
 func proxyServer(list *[]Broadcast) {
-	ln, err := net.Listen("tcp", ":5000")
+	var proxyPort =  ":" + yamlConfig.Server.PORT
+	ln, err := net.Listen("tcp", proxyPort)
 	if err != nil {
 		fmt.Println(err)
+		log.Error(err)
 		return
 	}
 
@@ -44,6 +53,7 @@ func proxyServer(list *[]Broadcast) {
 		conn, err := ln.Accept()
 		if err != nil {
 			fmt.Println(err)
+			log.Error(err)
 			continue
 		}
 
@@ -53,7 +63,6 @@ func proxyServer(list *[]Broadcast) {
 
 	}
 }
-
 
 func proxyInputFeed(ch <-chan JsonQuote, connList *[]Broadcast) {
 
@@ -78,34 +87,42 @@ func proxyInputFeed(ch <-chan JsonQuote, connList *[]Broadcast) {
 
 func proxyFeedClient(wg *sync.WaitGroup, ch chan<- JsonQuote) {
 	fmt.Println("starting client....")
-	conn, err := net.Dial("tcp", "localhost:3001")
+	var address = yamlConfig.Client.IP + ":" + yamlConfig.Client.PORT
+	conn, err := net.Dial("tcp", address)
 
 	if err != nil {
 		fmt.Println(err)
-		fmt.Println("Error occured while trying to connect to the server")
+		log.Error(err)
 		wg.Done()
 		return
 	}
 
 	fmt.Println(err)
 
-  var quote JsonQuote
-  decoder := json.NewDecoder(conn)
+	var quote JsonQuote
+	decoder := json.NewDecoder(conn)
 	for {
-      err = decoder.Decode(&quote)
-      if err != nil {
-        fmt.Println(err)
-        if err == io.EOF {
-          fmt.Println("Source disconnected..")
-          break
-        }
-      } else {
-        ch <- quote
-      }
+		err = decoder.Decode(&quote)
+		if err != nil {
+			fmt.Println(err)
+			log.Error(err)
+			if err == io.EOF {
+				fmt.Println("Source disconnected..")
+				break
+			}
+		} else {
+			ch <- quote
+		}
 	}
 }
 
 func main() {
+
+	args := os.Args
+	yamlConfig = getYamlConfig(args[1])
+	log = initLogger(yamlConfig.LogFile)
+	log.Info("Proxy server started with ", os.Getpid())
+
 	messageChannel := make(chan JsonQuote, 10)
 	connList := make([]Broadcast, 10)
 	go proxyServer(&connList)
