@@ -77,20 +77,20 @@ func updateQuoteDb(ch <-chan JsonQuote) {
 	mutex := new(sync.Mutex)
 
 	var dbaddress = yamlConfig.DB.Username + ":" + yamlConfig.DB.Password + "@tcp(127.0.0.1:3306)/" + yamlConfig.DB.Database
-//root:roadrunner@tcp(127.0.0.1:3306)/quote
 	db, err := sql.Open("mysql", dbaddress)
 	if err != nil {
 		log.Error(err)
 		panic(err)
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(5)
+    var maxConn = yamlConfig.DB.PoolSize
+	db.SetMaxOpenConns(maxConn)
+    db.SetMaxIdleConns(0)
 
 	i := 0
 	for {
 		select {
 		case quote := <-ch:
-			//fmt.Println("index ", i)
 			buf = append(buf, quote)
 			if i > 200 {
 				mutex.Lock()
@@ -127,7 +127,6 @@ func updateValues(buf *[]JsonQuote, db *sql.DB) {
 		query += "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,from_unixtime(?))"
 		vals = append(vals, q.TradeSymbol, q.Symbol, q.Ltp, q.Open, q.Close, q.High, q.Low, q.Change, q.ChangePer, q.TotalQty, q.Ask, q.Bid, q.AskSize, q.BidSize, q.Time)
 		query += ","
-		//vals = append(vals, q.Ltp, q.Open, q.Close, q.High, q.Low, q.Change, q.ChangePer, q.TotalQty, q.Ask, q.Bid, q.AskSize, q.BidSize, q.TradeSymbol)
 	}
 
 	query = strings.TrimSuffix(query, ",")
@@ -153,7 +152,7 @@ func main() {
 	args := os.Args
 	yamlConfig = getYamlConfig(args[1])
 	log = initLogger(yamlConfig.LogFile)
-	log.Info("Quote updater started")
+	log.Info("Quote updater started with ", os.Getpid())
 	quoteQueueChannel := make(chan JsonQuote, 10)
 
 	var wg sync.WaitGroup
