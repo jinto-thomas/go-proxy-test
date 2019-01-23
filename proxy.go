@@ -14,23 +14,24 @@ var yamlConfig *Config
 var log *logrus.Logger
 
 type JsonQuote struct {
-	Symbol       string  `json:"sym"`
-	TradeSymbol  string  `json:"tradSym"`
-	Exchange     string  `json:"exc"`
-	Ltp          float64 `json:"ltp"`
-	Open         float64 `json:"open"`
-	Close        float64 `json:"close"`
-	High         float64 `json:"high"`
-	Low          float64 `json:"low"`
-	Time         int64   `json:"time"`
-	Change       float64 `json:"chg"`
-	ChangePer    float64 `json:"chgPer"`
-	Ask          float64 `json:"ask"`
-	Bid          float64 `json:"bid"`
-	BidSize      int64   `json:"askQty"`
-	AskSize      int64   `json:"bidQty"`
-	OpenInterest float64 `json:"oi"`
-	TotalQty     int64   `json:"tq"`
+	Symbol         string  `json:"sym"`
+	TradeSymbol    string  `json:"tradSym"`
+	Exchange       string  `json:"exc"`
+	Ltp            float64 `json:"ltp"`
+	Open           float64 `json:"open"`
+	Close          float64 `json:"close"`
+	High           float64 `json:"high"`
+	Low            float64 `json:"low"`
+	Time           int64   `json:"time"`
+	Change         float64 `json:"chg"`
+	ChangePer      float64 `json:"chgPer"`
+	Ask            float64 `json:"ask"`
+	Bid            float64 `json:"bid"`
+	BidSize        int64   `json:"askQty"`
+	AskSize        int64   `json:"bidQty"`
+	OpenInterest   float64 `json:"oi"`
+	TotalQty       int64   `json:"tq"`
+	InstrumentType string  `json:"type"`
 }
 
 type Broadcast struct {
@@ -40,7 +41,7 @@ type Broadcast struct {
 }
 
 func proxyServer(list *[]Broadcast) {
-	var proxyPort = ":"+ yamlConfig.Server.PORT
+	var proxyPort = ":" + yamlConfig.Server.PORT
 	ln, err := net.Listen("tcp", proxyPort)
 	if err != nil {
 		fmt.Println(err)

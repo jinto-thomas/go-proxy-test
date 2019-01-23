@@ -54,6 +54,8 @@ func main() {
       },
     }
 
+    var str = "hello 'world'"
+    fmt.Println(str)
 
 
     //Formatter := new(Formatter2)
