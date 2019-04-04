@@ -37,7 +37,7 @@ func NFOPoints(w http.ResponseWriter, r *http.Request) {
 	start := v.Get("start")
 	end := v.Get("end")
 
-  var rows *sql.Rows
+	var rows *sql.Rows
 	var err error
 	var bstart, bend bool
 	var startTime, endTime time.Time
@@ -61,8 +61,8 @@ func NFOPoints(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"message": "invalid end date , please provide yyyy-mm-dd"})
 			return
 		}
-    endTime = endTime.Add(time.Hour *  20)
-    fmt.Println("20 hours added ", endTime)
+		endTime = endTime.Add(time.Hour * 20)
+		fmt.Println("20 hours added ", endTime)
 		bend = true
 	}
 
@@ -85,8 +85,8 @@ func NFOPoints(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else if bstart == true && bend == true {
-    fmt.Println(startTime)
-    fmt.Println(endTime)
+		fmt.Println(startTime)
+		fmt.Println(endTime)
 		rows, err = db.Query("select trad_sym, ltp, open, close, high, low, updated_at from nfo_chart where trad_sym = ? and updated_at >= ? and updated_at <= ? order by updated_at desc", sym, startTime, endTime)
 		if err != nil {
 			fmt.Println(err)
@@ -141,7 +141,6 @@ func NFOPoints(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
 func NSEPoints(w http.ResponseWriter, r *http.Request) {
 	log.Debug(r.RemoteAddr + " : " + r.URL.String())
 	v := r.URL.Query()
@@ -149,7 +148,7 @@ func NSEPoints(w http.ResponseWriter, r *http.Request) {
 	start := v.Get("start")
 	end := v.Get("end")
 
-  var rows *sql.Rows
+	var rows *sql.Rows
 	var err error
 	var bstart, bend bool
 	var startTime, endTime time.Time
@@ -173,8 +172,8 @@ func NSEPoints(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"message": "invalid end date , please provide yyyy-mm-dd"})
 			return
 		}
-    endTime = endTime.Add(time.Hour *  20)
-    fmt.Println("20 hours added ", endTime)
+		endTime = endTime.Add(time.Hour * 20)
+		fmt.Println("20 hours added ", endTime)
 		bend = true
 	}
 
@@ -197,8 +196,8 @@ func NSEPoints(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else if bstart == true && bend == true {
-    fmt.Println(startTime)
-    fmt.Println(endTime)
+		fmt.Println(startTime)
+		fmt.Println(endTime)
 		rows, err = db.Query("select trad_sym, ltp, open, close, high, low, updated_at from nse_chart where trad_sym = ? and updated_at >= ? and updated_at <= ? order by updated_at desc", sym, startTime, endTime)
 		if err != nil {
 			fmt.Println(err)
@@ -211,6 +210,108 @@ func NSEPoints(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"message": "invalid query, start date not found"})
 		return
 	}
+	defer rows.Close()
+
+	var points []Point
+	for rows.Next() {
+		var open, close, ltp, high, low float64
+		var ltt time.Time
+		var symbol string
+
+		err := rows.Scan(&symbol, &ltp, &open, &close, &high, &low, &ltt)
+		if err != nil {
+			fmt.Println(err)
+			log.Error(err)
+			json.NewEncoder(w).Encode(map[string]string{"message": "error in query"})
+			return
+		}
+		var pt Point
+		pt.Symbol = symbol
+		pt.Ltp = ltp
+		pt.Open = open
+		pt.Close = close
+		pt.High = high
+		pt.Low = close
+		pt.Time = time.Time(ltt).String()
+		points = append(points, pt)
+	}
+	if len(points) == 0 {
+		empty := []Point{}
+		json.NewEncoder(w).Encode(empty)
+		return
+	}
+	json.NewEncoder(w).Encode(points)
+
+}
+
+func NFOLastPoints(w http.ResponseWriter, r *http.Request) {
+	log.Debug(r.RemoteAddr + " : " + r.URL.String())
+	v := r.URL.Query()
+	sym := v.Get("symbol")
+	limit := v.Get("limit")
+
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query("select trad_sym, ltp, open, close, high, low, updated_at from nfo_chart where trad_sym = ? order by updated_at desc limit ?", sym, limit)
+	if err != nil {
+		fmt.Println(err)
+		log.Error(err)
+		json.NewEncoder(w).Encode(map[string]string{"message": "error occured"})
+		return
+	}
+
+	defer rows.Close()
+
+	var points []Point
+	for rows.Next() {
+		var open, close, ltp, high, low float64
+		var ltt time.Time
+		var symbol string
+
+		err := rows.Scan(&symbol, &ltp, &open, &close, &high, &low, &ltt)
+		if err != nil {
+			fmt.Println(err)
+			log.Error(err)
+			json.NewEncoder(w).Encode(map[string]string{"message": "error in query"})
+			return
+		}
+		var pt Point
+		pt.Symbol = symbol
+		pt.Ltp = ltp
+		pt.Open = open
+		pt.Close = close
+		pt.High = high
+		pt.Low = close
+		pt.Time = time.Time(ltt).String()
+		points = append(points, pt)
+	}
+	if len(points) == 0 {
+		empty := []Point{}
+		json.NewEncoder(w).Encode(empty)
+		return
+	}
+	json.NewEncoder(w).Encode(points)
+
+}
+
+func NSELastPoints(w http.ResponseWriter, r *http.Request) {
+	log.Debug(r.RemoteAddr + " : " + r.URL.String())
+	v := r.URL.Query()
+	sym := v.Get("symbol")
+	limit := v.Get("limit")
+
+	var rows *sql.Rows
+	var err error
+
+	rows, err = db.Query("select trad_sym, ltp, open, close, high, low, updated_at from nse_chart where trad_sym = ? order by updated_at desc limit ?", sym, limit)
+	if err != nil {
+		fmt.Println(err)
+		log.Error(err)
+		json.NewEncoder(w).Encode(map[string]string{"message": "error occured"})
+		return
+	}
+
 	defer rows.Close()
 
 	var points []Point
@@ -268,5 +369,7 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/NFO", NFOPoints).Methods("GET")
 	router.HandleFunc("/NSE", NSEPoints).Methods("GET")
+	router.HandleFunc("/NSELASTPOINTS", NSELastPoints).Methods("GET")
+	router.HandleFunc("/NFOLASTPOINTS", NFOLastPoints).Methods("GET")
 	http.ListenAndServe(":8000", router)
 }
